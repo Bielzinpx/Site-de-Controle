@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Controle de Entrega de Equipamentos</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        form {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        label {
+            display: block;
+            margin: 10px 0 5px;
+        }
+        input[type="text"], input[type="datetime-local"] {
+            width: 100%;
+            padding: 8px;
+            box-sizing: border-box;
+        }
+        input[type="submit"] {
+            margin-top: 20px;
+            padding: 10px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        input[type="submit"]:hover {
+            background-color: #45a049;
+        }
+        button {
+            margin-top: 20px;
+            padding: 10px 15px;
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        table {
+            width: 100%;
+            margin-top: 20px;
+            border-collapse: collapse;
+        }
+        table, th, td {
+            border: 1px solid black;
+        }
+        th, td {
+            padding: 10px;
+            text-align: left;
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.16.9/xlsx.full.min.js"></script>
+</head>
+<body>
+    <h1>Controle de Entrega de Equipamentos</h1>
+    <form id="equipForm">
+        <label for="serialNumber">Número de Série:</label>
+        <input type="text" id="serialNumber" name="serialNumber" required>
+
+        <label for="employeeName">Nome do Funcionário:</label>
+        <input type="text" id="employeeName" name="employeeName" required>
+
+        <label for="deliveryTime">Horário de Entrega:</label>
+        <input type="datetime-local" id="deliveryTime" name="deliveryTime" required>
+
+        <label for="returnTime">Horário de Devolução:</label>
+        <input type="datetime-local" id="returnTime" name="returnTime" required>
+
+        <input type="hidden" id="editIndex" name="editIndex">
+        <input type="submit" value="Registrar">
+    </form>
+
+    <button id="exportBtn">Exportar para Excel</button>
+
+    <h2>Registros</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Número de Série</th>
+                <th>Nome do Funcionário</th>
+                <th>Horário de Entrega</th>
+                <th>Horário de Devolução</th>
+                <th>Ações</th>
+            </tr>
+        </thead>
+        <tbody id="recordsTableBody">
+            <!-- Registros irão aparecer aqui -->
+        </tbody>
+    </table>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            loadRecords();
+
+            document.getElementById('equipForm').addEventListener('submit', function(event) {
+                event.preventDefault();
+                
+                const serialNumber = document.getElementById('serialNumber').value;
+                const employeeName = document.getElementById('employeeName').value;
+                const deliveryTime = document.getElementById('deliveryTime').value;
+                const returnTime = document.getElementById('returnTime').value;
+                const editIndex = document.getElementById('editIndex').value;
+
+                const newRecord = {
+                    serialNumber,
+                    employeeName,
+                    deliveryTime,
+                    returnTime
+                };
+
+                if (editIndex === '') {
+                    saveRecord(newRecord);
+                } else {
+                    updateRecord(newRecord, editIndex);
+                }
+
+                loadRecords();
+                document.getElementById('equipForm').reset();
+                document.getElementById('editIndex').value = '';
+            });
+
+            document.getElementById('exportBtn').addEventListener('click', function() {
+                exportToExcel();
+            });
+        });
+
+        function loadRecords() {
+            const records = JSON.parse(localStorage.getItem('records')) || [];
+            const tableBody = document.getElementById('recordsTableBody');
+            tableBody.innerHTML = '';
+            records.forEach((record, index) => {
+                addRecordToTable(record, index);
+            });
+        }
+
+        function saveRecord(record) {
+            const records = JSON.parse(localStorage.getItem('records')) || [];
+            records.push(record);
+            localStorage.setItem('records', JSON.stringify(records));
+        }
+
+        function updateRecord(record, index) {
+            const records = JSON.parse(localStorage.getItem('records')) || [];
+            records[index] = record;
+            localStorage.setItem('records', JSON.stringify(records));
+        }
+
+        function addRecordToTable(record, index) {
+            const tableBody = document.getElementById('recordsTableBody');
+            const newRow = document.createElement('tr');
+
+            const serialNumberCell = document.createElement('td');
+            serialNumberCell.textContent = record.serialNumber;
+            newRow.appendChild(serialNumberCell);
+
+            const employeeNameCell = document.createElement('td');
+            employeeNameCell.textContent = record.employeeName;
+            newRow.appendChild(employeeNameCell);
+
+            const deliveryTimeCell = document.createElement('td');
+            deliveryTimeCell.textContent = record.deliveryTime.replace('T', ' ');
+            newRow.appendChild(deliveryTimeCell);
+
+            const returnTimeCell = document.createElement('td');
+            returnTimeCell.textContent = record.returnTime.replace('T', ' ');
+            newRow.appendChild(returnTimeCell);
+
+            const actionsCell = document.createElement('td');
+            const editButton = document.createElement('button');
+            editButton.textContent = 'Editar';
+            editButton.onclick = () => editRecord(index);
+            actionsCell.appendChild(editButton);
+            newRow.appendChild(actionsCell);
+
+            tableBody.appendChild(newRow);
+        }
+
+        function editRecord(index) {
+            const records = JSON.parse(localStorage.getItem('records')) || [];
+            const record = records[index];
+
+            document.getElementById('serialNumber').value = record.serialNumber;
+            document.getElementById('employeeName').value = record.employeeName;
+            document.getElementById('deliveryTime').value = record.deliveryTime;
+            document.getElementById('returnTime').value = record.returnTime;
+            document.getElementById('editIndex').value = index;
+        }
+
+        function exportToExcel() {
+            const records = JSON.parse(localStorage.getItem('records')) || [];
+            const ws = XLSX.utils.json_to_sheet(records);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Registros');
+            XLSX.writeFile(wb, 'registros.xlsx');
+        }
+    </script>
+</body>
+</html>
